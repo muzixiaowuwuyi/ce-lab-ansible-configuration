@@ -3,20 +3,37 @@
   hosts: local
   become: true
   gather_facts: true
- 
+
   tasks:
     - name: Update apt cache
       ansible.builtin.apt:
         update_cache: true
         cache_valid_time: 3600
       when: ansible_os_family == "Debian"
- 
+
+    # ==================== 新增下面这个任务 ====================
+    - name: Ensure deploy group and user exist
+      block:
+        - name: Create deploy group
+          ansible.builtin.group:
+            name: "{{ deploy_user }}"
+            state: present
+
+        - name: Create deploy user
+          ansible.builtin.user:
+            name: "{{ deploy_user }}"
+            group: "{{ deploy_user }}"
+            append: true
+            shell: /bin/bash
+            state: present
+    # ========================================================
+
     - name: Install required packages
       ansible.builtin.package:
         name: "{{ item }}"
         state: present
       loop: "{{ packages }}"
- 
+
     - name: Create application directories
       ansible.builtin.file:
         path: "{{ item }}"
@@ -25,7 +42,7 @@
         group: "{{ deploy_user | default('root') }}"
         mode: "0755"
       loop: "{{ app_directories }}"
- 
+
     - name: Deploy application config from template
       ansible.builtin.template:
         src: templates/app.conf.j2
@@ -33,7 +50,7 @@
         owner: root
         group: root
         mode: "0644"
- 
+
     - name: Display configuration summary
       ansible.builtin.debug:
         msg: |
